@@ -1342,8 +1342,9 @@ function openPwModal(title, desc, callback) {
 
 function pwModalConfirm() {
   const pw = document.getElementById('pwModalInput').value;
+  const cb = _pwModalCallback;
   closePwModal();
-  if (_pwModalCallback) _pwModalCallback(pw);
+  if (cb) cb(pw);
 }
 
 function closePwModal() {
