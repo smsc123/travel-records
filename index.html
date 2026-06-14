@@ -1366,7 +1366,7 @@ async function doFirstTimeSetup() {
   const tokenInput = document.getElementById('setupToken').value.trim();
 
   if (tokenInput) {
-    // 首次设置，有 token
+    // 验证 Token
     showSyncBanner('验证 Token...', 'info');
     try {
       const r = await fetch('https://api.github.com/gists', {
@@ -1375,18 +1375,82 @@ async function doFirstTimeSetup() {
       if (!r.ok) throw new Error('Token 无效');
     } catch(e) { showSyncBanner('Token 无效: ' + e.message, 'error'); return; }
 
-    // 创建数据 Gist
-    showSyncBanner('创建数据 Gist...', 'info');
+    // 检查 master Gist 是否已有配置，如有则复用数据 Gist
+    cloudDataGistId = '';
+    let needCreateGist = true;
     try {
-      const cr = await fetch('https://api.github.com/gists', {
-        method: 'POST',
-        headers: { Authorization: 'token ' + tokenInput, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: 'travel-records data', public: false, files: { 'travel-data.json': { content: '{}' } } })
+      const gr = await fetch('https://api.github.com/gists/' + MASTER_GIST_ID, {
+        headers: { Authorization: 'token ' + tokenInput, Accept: 'application/vnd.github.v3+json' }
       });
-      if (!cr.ok) throw new Error('创建失败');
-      const created = await cr.json();
-      cloudDataGistId = created.id;
-    } catch(e) { showSyncBanner('创建失败: ' + e.message, 'error'); return; }
+      if (gr.ok) {
+        const gist = await gr.json();
+        const fc = gist.files[Object.keys(gist.files)[0]].content;
+        const parsed = JSON.parse(fc);
+        if (parsed.data) {
+          try {
+            const dec = CryptoJS.AES.decrypt(parsed.data, password);
+            const decConfig = JSON.parse(dec.toString(CryptoJS.enc.Utf8));
+            if (decConfig && decConfig.dataGistId) {
+              // 验证该 Gist 仍然存在
+              try {
+                const testG = await fetch('https://api.github.com/gists/' + decConfig.dataGistId, {
+                  headers: { Authorization: 'token ' + tokenInput, Accept: 'application/vnd.github.v3+json' }
+                });
+                if (testG.ok) {
+                  cloudDataGistId = decConfig.dataGistId;
+                  needCreateGist = false;
+                  showSyncBanner('找到已有配置，复用数据 Gist', 'info');
+                }
+              } catch(e) { /* 验证失败，继续搜索 */ }
+            }
+          } catch(e) { /* 密码不同，忽略 */ }
+        }
+      }
+    } catch(e) { /* 忽略 */ }
+
+    // 如果 master 配置无效，搜索已有的数据 Gist
+    if (needCreateGist) {
+      try {
+        const allGists = await fetch('https://api.github.com/gists?per_page=50', {
+          headers: { Authorization: 'token ' + tokenInput, Accept: 'application/vnd.github.v3+json' }
+        });
+        if (allGists.ok) {
+          const gistList = await allGists.json();
+          for (const g of gistList) {
+            if (g.description === 'travel-records data' && g.id !== MASTER_GIST_ID) {
+              // 检查是否包含有效数据
+              const gDetail = await fetch('https://api.github.com/gists/' + g.id, {
+                headers: { Authorization: 'token ' + tokenInput, Accept: 'application/vnd.github.v3+json' }
+              });
+              if (gDetail.ok) {
+                const detail = await gDetail.json();
+                const gc = detail.files[Object.keys(detail.files)[0]].content;
+                if (gc.length > 50) {
+                  cloudDataGistId = g.id;
+                  needCreateGist = false;
+                  showSyncBanner('找到已有数据 Gist，自动连接', 'info');
+                  break;
+                }
+              }
+            }
+          }
+        }
+      } catch(e) { /* 搜索失败，回退到创建新 Gist */ }
+    }
+
+    if (needCreateGist) {
+      showSyncBanner('创建数据 Gist...', 'info');
+      try {
+        const cr = await fetch('https://api.github.com/gists', {
+          method: 'POST',
+          headers: { Authorization: 'token ' + tokenInput, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: 'travel-records data', public: false, files: { 'travel-data.json': { content: '{}' } } })
+        });
+        if (!cr.ok) throw new Error('创建失败');
+        const created = await cr.json();
+        cloudDataGistId = created.id;
+      } catch(e) { showSyncBanner('创建失败: ' + e.message, 'error'); return; }
+    }
 
     // 加密 token + dataGistId 存入 master Gist
     showSyncBanner('保存配置到云端...', 'info');
