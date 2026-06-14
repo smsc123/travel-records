@@ -1,2 +1,2 @@
 # travel-records
-Cloud sync version
+Cloud sync v2
