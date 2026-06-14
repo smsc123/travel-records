@@ -1278,7 +1278,6 @@ function init() {
 }
 
 // ====== 云端同步 ======
-// 硬编码的配置文件 Gist ID（加密存储 token + 数据 Gist ID）
 const MASTER_GIST_ID = '81c0fc81961d55646560a0e93ff15fe7';
 const CLOUD_CONFIG_KEY = 'travel_cloud_config_v1';
 const CLOUD_TOKEN_KEY = 'travel_cloud_token_v1';
@@ -1286,6 +1285,7 @@ let cloudConfig = JSON.parse(localStorage.getItem(CLOUD_CONFIG_KEY) || 'null');
 let cloudToken = localStorage.getItem(CLOUD_TOKEN_KEY) || '';
 let cloudDataGistId = cloudConfig ? cloudConfig.dataGistId : '';
 let cloudPassword = '';
+let _pwModalCallback = null;
 
 function openSyncModal() {
   document.getElementById('syncModal').style.display = 'flex';
@@ -1315,255 +1315,248 @@ function openSyncModal() {
 
 function closeSyncModal() {
   document.getElementById('syncModal').style.display = 'none';
-  document.getElementById('syncPassword').value = '';
+  document.getElementById('setupToken').value = '';
+  document.getElementById('setupPassword').value = '';
 }
 
 function showSyncBanner(msg, type) {
   const banner = document.getElementById('syncStatusBanner');
   banner.style.display = 'block';
-  if (type === 'success') {
-    banner.style.background = '#F0FDF4'; banner.style.color = '#166534';
-  } else if (type === 'error') {
-    banner.style.background = '#FEF2F2'; banner.style.color = '#991B1B';
-  } else {
-    banner.style.background = '#FFFBEB'; banner.style.color = '#92400E';
-  }
+  if (type === 'success') { banner.style.background = '#F0FDF4'; banner.style.color = '#166534'; }
+  else if (type === 'error') { banner.style.background = '#FEF2F2'; banner.style.color = '#991B1B'; }
+  else { banner.style.background = '#FFFBEB'; banner.style.color = '#92400E'; }
   banner.textContent = msg;
 }
 
-async function doCloudConnect() {
-  const token = document.getElementById('syncToken').value.trim();
-  const gistId = document.getElementById('syncGistId').value.trim();
-  const password = document.getElementById('syncPassword').value;
-
-  if (!token) { showSyncBanner('⚠️ 请输入 GitHub Token', 'warn'); return; }
-  if (!password) { showSyncBanner('⚠️ 请设置加密密码', 'warn'); return; }
-  if (password.length < 4) { showSyncBanner('⚠️ 密码至少4位', 'warn'); return; }
-
-  cloudToken = token;
-  cloudPassword = password;
-
-  showSyncBanner('⏳ 正在验证 Token 并连接...', 'info');
-
-  try {
-    // 验证token是否有gist权限
-    const checkRes = await fetch('https://api.github.com/gists', {
-      headers: { Authorization: 'token ' + token, Accept: 'application/vnd.github.v3+json' }
-    });
-    if (!checkRes.ok) throw new Error('Token无效或权限不足');
-
-    let finalGistId = gistId;
-
-    // 如果没有gistId，创建一个新Gist
-    if (!gistId) {
-      showSyncBanner('⏳ 正在创建私有 Gist...', 'info');
-      const createRes = await fetch('https://api.github.com/gists', {
-        method: 'POST',
-        headers: { Authorization: 'token ' + token, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          description: '差旅记录数据备份 (加密)',
-          public: false,
-          files: { 'travel-data.json': { content: JSON.stringify({ v: 1, d: [] }) } }
-        })
-      });
-      if (!createRes.ok) throw new Error('创建Gist失败');
-      const created = await createRes.json();
-      finalGistId = created.id;
-    } else {
-      // 验证gistId是否存在且可访问
-      const gRes = await fetch(`https://api.github.com/gists/${gistId}`, {
-        headers: { Authorization: 'token ' + token, Accept: 'application/vnd.github.v3+json' }
-      });
-      if (!gRes.ok) throw new Error('Gist ID 不存在或无权访问');
-    }
-
-    cloudGistId = finalGistId;
-    // 保存配置（不含密码）
-    const config = { token, gistId: finalGistId };
-    localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(config));
-    cloudConfig = config;
-
-    showSyncBanner('✅ 连接成功！可以上传或下载数据了', 'success');
-    document.getElementById('btnCloudPush').style.display = 'block';
-    document.getElementById('btnCloudPull').style.display = 'block';
-    document.getElementById('btnCloudDisconnect').style.display = 'block';
-    document.getElementById('connectedInfo').style.display = 'block';
-    document.getElementById('connectedGistId').textContent = finalGistId;
-    document.getElementById('syncPassword').value = '';
-    document.getElementById('syncStatusBtn').innerHTML = '☁️ <span class="sync-dot"></span>';
-
-    // 自动触发首次上传
-    doCloudPush(true);
-  } catch (err) {
-    showSyncBanner('❌ 连接失败: ' + err.message, 'error');
-  }
-}
-
-async function doCloudPush(silent) {
-  if (!cloudConfig) { showToast('请先配置云同步', 'error'); return; }
-  if (!cloudPassword) {
-    // 弹窗让用户输入密码
-    document.getElementById('pwConfirmModal').style.display = 'flex';
-    document.getElementById('pwConfirmInput').placeholder = '输入加密密码后上传';
-    document.getElementById('pwConfirmInput').onkeydown = function(e) {
-      if (e.key === 'Enter') { cloudPassword = document.getElementById('pwConfirmInput').value; closePwModal(); doCloudPush(silent); }
-    };
-    return;
-  }
-
-  if (!silent) showToast('正在上传数据...', 'info');
-  document.getElementById('btnCloudPush').disabled = true;
-  document.getElementById('btnCloudPush').textContent = '⏳ 上传中...';
-  document.getElementById('syncStatusBtn').innerHTML = '☁️ <span class="sync-dot syncing"></span>';
-
-  try {
-    const records = getRecords();
-    const encrypted = CryptoJS.AES.encrypt(JSON.stringify({ v: 1, records }), cloudPassword).toString();
-    const payload = JSON.stringify({ updatedAt: new Date().toISOString(), data: encrypted });
-
-    // 获取当前gist的sha
-    const gRes = await fetch(`https://api.github.com/gists/${cloudGistId}`, {
-      headers: { Authorization: 'token ' + cloudToken, Accept: 'application/vnd.github.v3+json' }
-    });
-    if (!gRes.ok) throw new Error('获取Gist失败');
-    const gist = await gRes.json();
-    const filename = Object.keys(gist.files)[0];
-    const sha = gist.version;
-
-    const updateRes = await fetch(`https://api.github.com/gists/${cloudGistId}`, {
-      method: 'PATCH',
-      headers: { Authorization: 'token ' + cloudToken, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        description: '差旅记录数据备份 (加密)',
-        files: { [filename]: { content: payload } }
-      })
-    });
-    if (!updateRes.ok) throw new Error('上传失败');
-
-    if (!silent) showToast('✅ 数据已安全上传到云端', 'success');
-    showSyncBanner('✅ 上传成功！' + records.length + ' 条记录已加密保存', 'success');
-    document.getElementById('syncStatusBtn').innerHTML = '☁️ <span class="sync-dot"></span>';
-  } catch (err) {
-    showToast('❌ 上传失败: ' + err.message, 'error');
-    showSyncBanner('❌ 上传失败: ' + err.message, 'error');
-    document.getElementById('syncStatusBtn').innerHTML = '☁️ <span class="sync-dot"></span>';
-  }
-
-  document.getElementById('btnCloudPush').disabled = false;
-  document.getElementById('btnCloudPush').textContent = '⬆️ 同步上传（本地 → 云端）';
-}
-
-let pendingPullPassword = '';
-
-async function doCloudPull() {
-  if (!cloudConfig) { showToast('请先配置云同步', 'error'); return; }
-  pendingPullPassword = '';
-  document.getElementById('pwConfirmModal').style.display = 'flex';
-  document.getElementById('pwConfirmInput').value = '';
-  document.getElementById('pwConfirmInput').placeholder = '输入加密密码后下载';
-  document.getElementById('pwConfirmInput').focus();
-  document.getElementById('pwConfirmInput').onkeydown = function(e) {
-    if (e.key === 'Enter') {
-      pendingPullPassword = document.getElementById('pwConfirmInput').value;
-      closePwModal();
-      performPull(pendingPullPassword);
-    }
+function openPwModal(title, desc, callback) {
+  document.getElementById('pwModalTitle').textContent = title;
+  document.getElementById('pwModalDesc').textContent = desc;
+  document.getElementById('pwModalInput').value = '';
+  document.getElementById('pwModal').style.display = 'flex';
+  document.getElementById('pwModalInput').focus();
+  _pwModalCallback = callback;
+  document.getElementById('pwModalInput').onkeydown = function(e) {
+    if (e.key === 'Enter') pwModalConfirm();
   };
 }
 
-async function confirmPull() {
-  pendingPullPassword = document.getElementById('pwConfirmInput').value;
+function pwModalConfirm() {
+  const pw = document.getElementById('pwModalInput').value;
   closePwModal();
-  performPull(pendingPullPassword);
+  if (_pwModalCallback) _pwModalCallback(pw);
 }
 
 function closePwModal() {
-  document.getElementById('pwConfirmModal').style.display = 'none';
+  document.getElementById('pwModal').style.display = 'none';
+  _pwModalCallback = null;
+}
+
+function setSyncBtn(state) {
+  const btn = document.getElementById('syncStatusBtn');
+  if (state === 'syncing') btn.innerHTML = '☁️ <span class="sync-dot syncing"></span>';
+  else btn.innerHTML = '☁️ <span class="sync-dot"></span>';
+}
+
+// ===== 首次设置：密码 + token =====
+async function doFirstTimeSetup() {
+  const password = document.getElementById('setupPassword').value;
+  if (!password || password.length < 4) { showSyncBanner('密码至少4位', 'warn'); return; }
+  cloudPassword = password;
+  const tokenInput = document.getElementById('setupToken').value.trim();
+
+  if (tokenInput) {
+    // 首次设置，有 token
+    showSyncBanner('验证 Token...', 'info');
+    try {
+      const r = await fetch('https://api.github.com/gists', {
+        headers: { Authorization: 'token ' + tokenInput, Accept: 'application/vnd.github.v3+json' }
+      });
+      if (!r.ok) throw new Error('Token 无效');
+    } catch(e) { showSyncBanner('Token 无效: ' + e.message, 'error'); return; }
+
+    // 创建数据 Gist
+    showSyncBanner('创建数据 Gist...', 'info');
+    try {
+      const cr = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { Authorization: 'token ' + tokenInput, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: 'travel-records data', public: false, files: { 'travel-data.json': { content: '{}' } } })
+      });
+      if (!cr.ok) throw new Error('创建失败');
+      const created = await cr.json();
+      cloudDataGistId = created.id;
+    } catch(e) { showSyncBanner('创建失败: ' + e.message, 'error'); return; }
+
+    // 加密 token + dataGistId 存入 master Gist
+    showSyncBanner('保存配置到云端...', 'info');
+    try {
+      const configData = JSON.stringify({ token: tokenInput, dataGistId: cloudDataGistId });
+      const encrypted = CryptoJS.AES.encrypt(configData, password).toString();
+      const payload = JSON.stringify({ version: 1, data: encrypted });
+
+      const gr = await fetch('https://api.github.com/gists/' + MASTER_GIST_ID, {
+        headers: { Authorization: 'token ' + tokenInput, Accept: 'application/vnd.github.v3+json' }
+      });
+      if (!gr.ok) throw new Error('访问配置 Gist 失败');
+      const gist = await gr.json();
+      const fname = Object.keys(gist.files)[0];
+
+      await fetch('https://api.github.com/gists/' + MASTER_GIST_ID, {
+        method: 'PATCH',
+        headers: { Authorization: 'token ' + tokenInput, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: 'travel-records config', files: { [fname]: { content: payload } } })
+      });
+    } catch(e) { showSyncBanner('保存失败: ' + e.message, 'error'); return; }
+
+    localStorage.setItem(CLOUD_TOKEN_KEY, tokenInput);
+    localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify({ dataGistId: cloudDataGistId }));
+    cloudToken = tokenInput;
+    cloudConfig = { dataGistId: cloudDataGistId };
+
+    showSyncBanner('初始化成功！', 'success');
+    openSyncModal();
+    doCloudPush(true);
+  } else if (cloudToken) {
+    // 只有密码，从 master Gist 恢复
+    showSyncBanner('恢复配置中...', 'info');
+    try {
+      const gr = await fetch('https://api.github.com/gists/' + MASTER_GIST_ID, {
+        headers: { Authorization: 'token ' + cloudToken, Accept: 'application/vnd.github.v3+json' }
+      });
+      if (!gr.ok) throw new Error('访问配置 Gist 失败');
+      const gist = await gr.json();
+      const fc = gist.files[Object.keys(gist.files)[0]].content;
+      const parsed = JSON.parse(fc);
+      if (!parsed.data) throw new Error('配置为空');
+
+      let dec;
+      try { dec = CryptoJS.AES.decrypt(parsed.data, password);
+        dec = JSON.parse(dec.toString(CryptoJS.enc.Utf8));
+      } catch(e) { showSyncBanner('密码错误', 'error'); return; }
+
+      cloudDataGistId = dec.dataGistId;
+      cloudConfig = { dataGistId: cloudDataGistId };
+      localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(cloudConfig));
+      showSyncBanner('配置恢复成功', 'success');
+      openSyncModal();
+      showToast('已恢复云端连接', 'success');
+    } catch(e) { showSyncBanner('恢复失败: ' + e.message, 'error'); }
+  } else {
+    showSyncBanner('首次需要提供 GitHub Token', 'warn');
+  }
+}
+
+// ===== 上传 =====
+async function doCloudPush(silent) {
+  if (!cloudToken || !cloudDataGistId) { showToast('请先配置云同步', 'error'); return; }
+  if (!cloudPassword) {
+    openPwModal('输入加密密码', '输入密码后上传', function(pw) {
+      cloudPassword = pw;
+      doCloudPush(silent);
+    });
+    return;
+  }
+
+  if (!silent) showToast('正在上传...', 'info');
+  setSyncBtn('syncing');
+
+  try {
+    const recs = getRecords();
+    const encrypted = CryptoJS.AES.encrypt(JSON.stringify({ v: 1, records: recs }), cloudPassword).toString();
+    const payload = JSON.stringify({ updatedAt: new Date().toISOString(), data: encrypted });
+
+    const gr = await fetch('https://api.github.com/gists/' + cloudDataGistId, {
+      headers: { Authorization: 'token ' + cloudToken, Accept: 'application/vnd.github.v3+json' }
+    });
+    if (!gr.ok) throw new Error('获取 Gist 失败');
+    const gist = await gr.json();
+    const fname = Object.keys(gist.files)[0];
+
+    const pr = await fetch('https://api.github.com/gists/' + cloudDataGistId, {
+      method: 'PATCH',
+      headers: { Authorization: 'token ' + cloudToken, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: { [fname]: { content: payload } } })
+    });
+    if (!pr.ok) throw new Error('上传失败');
+
+    if (!silent) showToast('已上传到云端', 'success');
+    showSyncBanner('上传成功! ' + recs.length + ' 条记录已加密保存', 'success');
+  } catch(e) {
+    showToast('上传失败: ' + e.message, 'error');
+    showSyncBanner('上传失败', 'error');
+  }
+  setSyncBtn('idle');
+}
+
+// ===== 下载 =====
+async function doCloudPull() {
+  if (!cloudToken) { showToast('请先配置云同步', 'error'); return; }
+  openPwModal('输入加密密码', '输入密码后下载', function(pw) {
+    performPull(pw);
+  });
 }
 
 async function performPull(password) {
   if (!password) { showToast('请输入密码', 'error'); return; }
-  document.getElementById('btnCloudPull').disabled = true;
-  document.getElementById('btnCloudPull').textContent = '⏳ 下载中...';
-  document.getElementById('syncStatusBtn').innerHTML = '☁️ <span class="sync-dot syncing"></span>';
-  showSyncBanner('⏳ 正在从云端下载...', 'info');
+  setSyncBtn('syncing');
+  showSyncBanner('下载中...', 'info');
 
   try {
-    const gRes = await fetch(`https://api.github.com/gists/${cloudGistId}`, {
+    const gr = await fetch('https://api.github.com/gists/' + cloudDataGistId, {
       headers: { Authorization: 'token ' + cloudToken, Accept: 'application/vnd.github.v3+json' }
     });
-    if (!gRes.ok) throw new Error('获取Gist失败，可能无权访问');
-    const gist = await gRes.json();
-    const filename = Object.keys(gist.files)[0];
-    const fileContent = gist.files[filename].content;
-    const parsed = JSON.parse(fileContent);
-
-    if (!parsed.data) throw new Error('Gist数据格式无效');
+    if (!gr.ok) throw new Error('获取 Gist 失败');
+    const gist = await gr.json();
+    const fc = gist.files[Object.keys(gist.files)[0]].content;
+    const parsed = JSON.parse(fc);
+    if (!parsed.data) throw new Error('数据格式无效');
 
     let decrypted;
     try {
       decrypted = CryptoJS.AES.decrypt(parsed.data, password);
       decrypted = JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
-    } catch (e) {
-      throw new Error('密码错误，解密失败');
-    }
+    } catch(e) { showSyncBanner('密码错误', 'error'); setSyncBtn('idle'); return; }
 
-    const cloudRecords = decrypted.records || [];
-
-    if (!confirm(`云端有 ${cloudRecords.length} 条记录，本地有 ${getRecords().length} 条。\n确认用云端数据覆盖本地？（建议操作前先上传本地数据）`)) {
-      document.getElementById('btnCloudPull').disabled = false;
-      document.getElementById('btnCloudPull').textContent = '⬇️ 同步下载（云端 → 本地）';
-      document.getElementById('syncStatusBtn').innerHTML = '☁️ <span class="sync-dot"></span>';
-      return;
-    }
-
-    saveRecords(cloudRecords);
-    records = cloudRecords;
+    const cloudRecs = decrypted.records || [];
     cloudPassword = password;
 
+    if (!confirm('云端 ' + cloudRecs.length + ' 条 / 本地 ' + getRecords().length + ' 条\n确认用云端覆盖本地？')) {
+      setSyncBtn('idle'); return;
+    }
+
+    saveRecords(cloudRecs);
+    records = cloudRecs;
     updateStats();
     renderYearGrid();
     renderDetailCalendar();
     renderMonthRecords();
 
-    showSyncBanner(`✅ 下载成功！${cloudRecords.length} 条记录已导入`, 'success');
-    showToast(`✅ 成功导入 ${cloudRecords.length} 条差旅记录`, 'success');
-    document.getElementById('syncStatusBtn').innerHTML = '☁️ <span class="sync-dot"></span>';
-  } catch (err) {
-    showToast('❌ 下载失败: ' + err.message, 'error');
-    showSyncBanner('❌ 下载失败: ' + err.message, 'error');
-    document.getElementById('syncStatusBtn').innerHTML = '☁️ <span class="sync-dot"></span>';
+    showSyncBanner(cloudRecs.length + ' 条记录已导入', 'success');
+    showToast('导入成功', 'success');
+  } catch(e) {
+    showToast('下载失败: ' + e.message, 'error');
+    showSyncBanner(e.message, 'error');
   }
-
-  document.getElementById('btnCloudPull').disabled = false;
-  document.getElementById('btnCloudPull').textContent = '⬇️ 同步下载（云端 → 本地）';
+  setSyncBtn('idle');
 }
 
 function doCloudDisconnect() {
-  if (!confirm('确认解除云端绑定？本地数据不受影响。')) return;
+  if (!confirm('解除绑定？本地数据不受影响。')) return;
   localStorage.removeItem(CLOUD_CONFIG_KEY);
-  cloudConfig = null;
-  cloudToken = '';
-  cloudGistId = '';
-  cloudPassword = '';
-  document.getElementById('syncToken').value = '';
-  document.getElementById('syncGistId').value = '';
-  document.getElementById('btnCloudPush').style.display = 'none';
-  document.getElementById('btnCloudPull').style.display = 'none';
-  document.getElementById('btnCloudDisconnect').style.display = 'none';
-  document.getElementById('connectedInfo').style.display = 'none';
+  localStorage.removeItem(CLOUD_TOKEN_KEY);
+  cloudConfig = null; cloudToken = ''; cloudDataGistId = ''; cloudPassword = '';
   document.getElementById('syncStatusBtn').innerHTML = '☁️';
-  showSyncBanner('已解除云端绑定', 'info');
+  showSyncBanner('已解除绑定', 'info');
+  openSyncModal();
 }
 
-// 修改 saveRecords：自动云端同步
-const _origSaveRecords = saveRecords;
+// 自动同步
+const _origSaveRecords2 = saveRecords;
 saveRecords = function(recs) {
-  _origSaveRecords(recs);
-  if (cloudConfig && cloudPassword) {
-    // 延迟2秒，避免每次保存都触发上传
+  _origSaveRecords2(recs);
+  if (cloudToken && cloudDataGistId && cloudPassword) {
     clearTimeout(window._cloudSyncTimer);
-    window._cloudSyncTimer = setTimeout(() => doCloudPush(true), 2000);
+    window._cloudSyncTimer = setTimeout(function() { doCloudPush(true); }, 2000);
   }
 };
 
