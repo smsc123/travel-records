@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>差旅记录 - 工具</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --primary: #2563EB;
+  --primary-dark: #1D4ED8;
+  --primary-light: #EFF6FF;
+  --primary-dark2: #1E40AF;
+  --success: #16A34A;
+  --success-light: #F0FDF4;
+  --warning: #D97706;
+  --warning-light: #FFFBEB;
+  --danger: #DC2626;
+  --danger-light: #FEF2F2;
+  --purple: #7C3AED;
+  --gray-50: #F9FAFB;
+  --gray-100: #F3F4F6;
+  --gray-200: #E5E7EB;
+  --gray-300: #D1D5DB;
+  --gray-400: #9CA3AF;
+  --gray-500: #6B7280;
+  --gray-600: #4B5563;
+  --gray-700: #374151;
+  --gray-800: #1F2937;
+  --white: #FFFFFF;
+  --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-xs: 4px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #EEF2F7;
+  color: var(--gray-700);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* ===== 顶部导航 ===== */
+.topbar {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: var(--white);
+  padding: 0 20px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow-md);
+}
+.topbar-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.topbar-title svg { width: 20px; height: 20px; }
+.topbar-date { font-size: 12px; opacity: 0.85; }
+.topbar-back {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.15);
+  border: none; color: var(--white);
+  padding: 6px 12px; border-radius: 20px;
+  font-size: 13px; cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.topbar-back:hover { background: rgba(255,255,255,0.25); }
+.topbar-back.hidden { visibility: hidden; pointer-events: none; }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+
+/* ===== 统计栏 ===== */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-200);
+}
+.stat-card {
+  text-align: center;
+  padding: 8px 4px;
+  border-radius: var(--radius-xs);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+}
+.stat-card .val { font-size: 18px; font-weight: 700; line-height: 1.2; }
+.stat-card .lbl { font-size: 9px; color: var(--gray-500); margin-top: 1px; font-weight: 500; }
+.stat-card.blue .val { color: var(--primary); }
+.stat-card.green .val { color: var(--success); }
+.stat-card.orange .val { color: var(--warning); }
+.stat-card.red .val { color: var(--danger); }
+
+/* ===== 主容器 ===== */
+.container { max-width: 960px; margin: 0 auto; padding: 12px 10px 30px; }
+
+/* ===== 全年日历总览 ===== */
+.year-section { }
+.year-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 4px;
+}
+.year-nav {
+  display: flex; align-items: center; gap: 8px;
+}
+.year-nav button {
+  width: 30px; height: 30px;
+  border-radius: 50%; border: none;
+  background: var(--primary); color: var(--white);
+  font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.year-nav button:hover { background: var(--primary-dark); }
+.year-title { font-size: 15px; font-weight: 700; color: var(--gray-800); }
+.year-total {
+  font-size: 11px; color: var(--gray-500);
+  background: var(--gray-100);
+  padding: 3px 10px; border-radius: 20px;
+}
+
+/* 12宫格 */
+.year-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.month-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: all 0.2s;
+  overflow: hidden;
+  border: 2px solid transparent;
+  position: relative;
+}
+.month-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  border-color: var(--primary);
+}
+.month-card.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.15), var(--shadow-md);
+}
+.month-card-header {
+  padding: 8px 10px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--gray-100);
+}
+.month-card.active .month-card-header { background: var(--primary-light); }
+.month-card-name {
+  font-size: 12px; font-weight: 700; color: var(--gray-800);
+}
+.month-card.active .month-card-name { color: var(--primary); }
+.month-card-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--gray-200);
+  transition: background 0.2s;
+}
+.month-card-dot.has { background: var(--primary); }
+.month-card-dot.has-reimbursed { background: var(--success); }
+.month-card-dot.has-unreimbursed { background: var(--warning); }
+.month-card-dot.has-both {
+  width: 12px; height: 8px; border-radius: 4px;
+  background: linear-gradient(90deg, var(--success) 50%, var(--warning) 50%);
+}
+.month-card-body {
+  padding: 6px 8px;
+  min-height: 72px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.mini-week {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+}
+.mini-day {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px;
+  color: var(--gray-400);
+}
+.mini-day.current-month { color: var(--gray-700); }
+.mini-day.has-trip { background: var(--primary); color: var(--white); font-weight: 600; }
+.mini-day.has-trip.reimbursed { background: var(--success); }
+.mini-day.has-trip.unreimbursed { background: var(--warning); }
+.mini-day.has-trip.both { background: var(--primary); }
+.mini-day.today { border: 1px solid var(--primary); }
+.mini-day.other { opacity: 0.3; }
+
+.mini-cal-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 8px;
+  background: var(--gray-50);
+  border-top: 1px solid var(--gray-100);
+  font-size: 10px; color: var(--gray-500);
+}
+.mini-cal-nav span { font-weight: 600; color: var(--primary); }
+.month-summary {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 8px;
+  background: var(--gray-50);
+  font-size: 10px; color: var(--gray-500);
+  border-top: 1px solid var(--gray-100);
+}
+.month-summary strong { color: var(--gray-700); }
+
+/* ===== 月份详情页 ===== */
+.month-view { display: none; }
+.month-view.visible { display: block; }
+.month-detail-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 4px;
+}
+.month-detail-title {
+  font-size: 16px; font-weight: 700; color: var(--gray-800);
+  display: flex; align-items: center; gap: 8px;
+}
+.month-detail-title .badge-small {
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+  background: var(--primary-light); color: var(--primary);
+}
+
+/* 月份大日历 */
+.cal-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.cal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--primary);
+  color: var(--white);
+}
+.cal-header button {
+  background: rgba(255,255,255,0.2);
+  border: none; color: var(--white);
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  cursor: pointer; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.cal-header button:hover { background: rgba(255,255,255,0.35); }
+.cal-title { font-size: 15px; font-weight: 600; flex: 1; text-align: center; }
+.cal-grid { padding: 8px; }
+.cal-weekdays {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  text-align: center; margin-bottom: 4px;
+}
+.cal-weekdays span {
+  font-size: 11px; font-weight: 600; color: var(--gray-400);
+  padding: 3px 0; text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.cal-days {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.cal-day {
+  aspect-ratio: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  position: relative;
+  font-size: 12px;
+  color: var(--gray-700);
+  transition: background 0.1s;
+  min-height: 42px;
+  padding: 3px 2px;
+}
+.cal-day:hover { background: var(--primary-light); }
+.cal-day.other-month { color: var(--gray-300); }
+.cal-day.today { background: var(--primary-light); color: var(--primary); font-weight: 700; }
+.cal-day.has-trip { font-weight: 600; }
+.day-dots { display: flex; gap: 2px; justify-content: center; flex-wrap: wrap; max-width: 34px; }
+.day-dots span { width: 5px; height: 5px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.day-num { line-height: 1; }
+.cal-legend {
+  display: flex; gap: 12px; padding: 7px 14px;
+  border-top: 1px solid var(--gray-100);
+  font-size: 10px; color: var(--gray-500);
+  justify-content: center;
+}
+.cal-legend span { display: flex; align-items: center; gap: 3px; }
+.cal-legend .dot { width: 7px; height: 7px; border-radius: 50%; }
+
+/* ===== 新增表单（月份内） ===== */
+.form-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.form-title {
+  padding: 10px 14px;
+  font-size: 13px; font-weight: 600; color: var(--gray-700);
+  border-bottom: 1px solid var(--gray-100);
+  display: flex; align-items: center; gap: 7px;
+  background: var(--gray-50);
+}
+.form-title svg { color: var(--primary); }
+.form-body { padding: 14px; }
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.form-grid .full { grid-column: 1 / -1; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label {
+  font-size: 11px; font-weight: 600; color: var(--gray-600);
+}
+.form-group label .req { color: var(--danger); }
+.form-group input, .form-group select, .form-group textarea {
+  padding: 8px 10px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--gray-700);
+  background: var(--white);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+  width: 100%;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+.form-group textarea { resize: vertical; min-height: 54px; }
+.form-group .hint { font-size: 10px; color: var(--gray-400); }
+.form-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--gray-100);
+  margin-top: 8px;
+}
+.checkbox-group {
+  display: flex; align-items: center; gap: 7px;
+  cursor: pointer; user-select: none; flex: 1;
+}
+.checkbox-group input[type="checkbox"] {
+  width: 17px; height: 17px;
+  accent-color: var(--primary);
+  cursor: pointer; margin: 0; padding: 0; border: none; box-shadow: none;
+}
+.checkbox-group .checktxt { font-size: 13px; color: var(--gray-600); }
+.btn-row { display: flex; gap: 8px; }
+.btn {
+  flex: 1;
+  padding: 9px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+}
+.btn-primary { background: var(--primary); color: var(--white); }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-secondary { background: var(--gray-100); color: var(--gray-600); }
+.btn-secondary:hover { background: var(--gray-200); }
+.btn-danger { background: var(--danger); color: var(--white); padding: 9px 12px; }
+.btn-danger:hover { background: #B91C1C; }
+
+/* ===== 筛选栏 ===== */
+.filter-bar {
+  display: flex; gap: 7px; align-items: center;
+  background: var(--white);
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 10px;
+}
+.filter-bar select, .filter-bar input {
+  flex: 1;
+  padding: 6px 9px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--gray-700);
+  outline: none;
+  background: var(--white);
+}
+.filter-bar select:focus, .filter-bar input:focus { border-color: var(--primary); }
+.filter-count { font-size: 11px; color: var(--gray-400); white-space: nowrap; }
+
+/* ===== 记录列表 ===== */
+.records-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.records-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+}
+.records-header h3 {
+  font-size: 13px; font-weight: 600; color: var(--gray-700);
+  display: flex; align-items: center; gap: 7px;
+}
+.records-header h3 svg { color: var(--primary); }
+.records-list { padding: 7px; display: flex; flex-direction: column; gap: 7px; }
+
+.trip-item {
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.trip-item:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+.trip-item.reimbursed { border-left: 4px solid var(--success); }
+.trip-item.unreimbursed { border-left: 4px solid var(--warning); }
+.trip-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 11px;
+  background: var(--gray-50);
+}
+.trip-person { font-weight: 700; font-size: 13px; color: var(--gray-800); }
+.trip-date { font-size: 10px; color: var(--gray-500); margin-top: 1px; }
+.trip-badges { display: flex; gap: 5px; align-items: center; flex-shrink: 0; }
+.badge {
+  padding: 2px 7px; border-radius: 20px;
+  font-size: 10px; font-weight: 600; white-space: nowrap;
+}
+.badge-green { background: var(--success-light); color: var(--success); }
+.badge-orange { background: var(--warning-light); color: var(--warning); }
+.badge-blue { background: var(--primary-light); color: var(--primary); }
+.trip-body { padding: 8px 11px; }
+.trip-row { display: flex; gap: 5px; margin-bottom: 4px; font-size: 11px; align-items: flex-start; }
+.trip-row:last-child { margin-bottom: 0; }
+.trip-label { color: var(--gray-500); min-width: 44px; flex-shrink: 0; font-weight: 500; }
+.trip-value { color: var(--gray-700); flex: 1; }
+.trip-value.money { font-weight: 700; color: var(--danger); }
+.trip-actions {
+  display: flex; gap: 5px; padding: 7px 11px;
+  border-top: 1px solid var(--gray-100); background: var(--gray-50);
+}
+.trip-actions .btn { padding: 5px 10px; font-size: 11px; flex: 1; }
+.trip-actions .btn-edit { background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary); }
+.trip-actions .btn-edit:hover { background: var(--primary); color: var(--white); }
+
+.empty-state { text-align: center; padding: 36px 20px; color: var(--gray-400); }
+.empty-state svg { width: 44px; height: 44px; margin-bottom: 8px; opacity: 0.4; }
+.empty-state p { font-size: 13px; }
+
+/* ===== 弹窗 ===== */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  backdrop-filter: blur(2px);
+}
+.modal-overlay.hidden { display: none; }
+.modal {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  width: 100%; max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.2s ease;
+}
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal-header {
+  padding: 13px 15px;
+  background: var(--primary); color: var(--white);
+  display: flex; align-items: center; justify-content: space-between;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.modal-header h3 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+.modal-close {
+  background: rgba(255,255,255,0.2); border: none; color: var(--white);
+  width: 27px; height: 27px; border-radius: 50%;
+  cursor: pointer; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-close:hover { background: rgba(255,255,255,0.4); }
+.modal-body { padding: 15px; }
+
+/* ===== Toast ===== */
+.toast-container {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+  z-index: 300; display: flex; flex-direction: column; gap: 7px; pointer-events: none;
+}
+.toast {
+  padding: 9px 16px; border-radius: 24px;
+  font-size: 12px; font-weight: 500;
+  box-shadow: var(--shadow-md);
+  animation: toastIn 0.3s ease, toastOut 0.3s ease 2.4s forwards;
+  white-space: nowrap;
+}
+.toast.success { background: var(--success); color: var(--white); }
+.toast.error { background: var(--danger); color: var(--white); }
+.toast.info { background: var(--gray-700); color: var(--white); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* ===== 响应式 ===== */
+@media (max-width: 600px) {
+  .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 7px; padding: 8px 10px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .container { padding: 8px 7px 24px; }
+  .year-grid { grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .month-card-body { min-height: 62px; }
+  .cal-day { min-height: 38px; font-size: 11px; }
+  .day-dots { max-width: 26px; }
+  .day-dots span { width: 4px; height: 4px; }
+  .month-detail-title { font-size: 14px; }
+}
+@media (max-width: 400px) {
+  .year-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- 顶部 -->
+<div class="topbar">
+  <button class="topbar-back hidden" id="topbarBack" onclick="goBack()">
+    ← 返回
+  </button>
+  <div class="topbar-title">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+    <div>
+      <div id="topbarTitle">差旅记录</div>
+      <div style="font-size:10px;opacity:0.75;font-weight:400;">Travel Records</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="topbar-date" id="topbarDate"></div>
+  </div>
+</div>
+
+<!-- 统计 -->
+<div class="stats-bar">
+  <div class="stat-card blue"><div class="val" id="statTotal">0</div><div class="lbl">差旅总数</div></div>
+  <div class="stat-card orange"><div class="val" id="statTotalFee">¥0</div><div class="lbl">总费用</div></div>
+  <div class="stat-card green"><div class="val" id="statReimbursed">¥0</div><div class="lbl">已报销</div></div>
+  <div class="stat-card red"><div class="val" id="statUnreimbursed">¥0</div><div class="lbl">未报销</div></div>
+</div>
+
+<div class="container">
+
+  <!-- ========== 全年总览 ========== -->
+  <div class="year-section" id="yearSection">
+    <div class="year-header">
+      <div class="year-nav">
+        <button onclick="changeYear(-1)" title="上一年">‹</button>
+        <span class="year-title" id="yearTitle"></span>
+        <button onclick="changeYear(1)" title="下一年">›</button>
+      </div>
+      <div class="year-total" id="yearTotal"></div>
+    </div>
+    <div class="year-grid" id="yearGrid"></div>
+  </div>
+
+  <!-- ========== 月份详情 ========== -->
+  <div class="month-view" id="monthView">
+    <div class="month-detail-header">
+      <div class="month-detail-title">
+        <button class="topbar-back" onclick="goBack()" style="border:none;background:none;color:var(--primary);font-size:22px;cursor:pointer;padding:0;">←</button>
+        <span id="monthDetailTitle"></span>
+        <span class="badge-small" id="monthDetailBadge"></span>
+      </div>
+      <button class="btn btn-primary" onclick="showAddForm()" id="btnShowAdd" style="flex:none;padding:7px 14px;font-size:12px;">
+        ＋ 新增
+      </button>
+    </div>
+
+    <!-- 月份大日历 -->
+    <div class="cal-card">
+      <div class="cal-header">
+        <button onclick="changeDetailMonth(-1)">‹</button>
+        <div class="cal-title" id="detailCalTitle"></div>
+        <button onclick="changeDetailMonth(1)">›</button>
+      </div>
+      <div class="cal-grid">
+        <div class="cal-weekdays">
+          <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+        </div>
+        <div class="cal-days" id="detailCalDays"></div>
+      </div>
+      <div class="cal-legend">
+        <span><span class="dot" style="background:#2563EB"></span>出差日</span>
+        <span><span class="dot" style="background:#16A34A"></span>已报销</span>
+        <span><span class="dot" style="background:#D97706"></span>未报销</span>
+      </div>
+    </div>
+
+    <!-- 新增表单（隐藏） -->
+    <div class="form-card" id="addFormCard" style="display:none;">
+      <div class="form-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+        <span id="formTitleText">新增差旅记录</span>
+      </div>
+      <div class="form-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>出差人 <span class="req">*</span></label>
+            <input type="text" id="fPerson" placeholder="姓名" maxlength="20">
+          </div>
+          <div class="form-group">
+            <label>地点 <span class="req">*</span></label>
+            <input type="text" id="fLocation" placeholder="目的地" maxlength="50">
+          </div>
+          <div class="form-group">
+            <label>开始日期 <span class="req">*</span></label>
+            <input type="date" id="fStartDate">
+          </div>
+          <div class="form-group">
+            <label>结束日期</label>
+            <input type="date" id="fEndDate">
+            <span class="hint">单日出差可不填</span>
+          </div>
+          <div class="form-group">
+            <label>差旅费（元）<span class="req">*</span></label>
+            <input type="number" id="fFee" placeholder="0.00" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <label>事由 <span class="req">*</span></label>
+            <input type="text" id="fReason" placeholder="出差目的" maxlength="100">
+          </div>
+          <div class="form-group full">
+            <label>备注</label>
+            <textarea id="fNote" placeholder="补充说明（可选）" maxlength="200" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="checkbox-group">
+            <input type="checkbox" id="fReimbursed">
+            <span class="checktxt">✅ 已报销</span>
+          </label>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="saveRecord()" id="btnSave">
+            💾 保存记录
+          </button>
+          <button class="btn btn-secondary" onclick="hideAddForm()">
+            取消
+          </button>
+        </div>
+        <input type="hidden" id="editId" value="">
+      </div>
+    </div>
+
+    <!-- 筛选 -->
+    <div class="filter-bar">
+      <select id="filterStatus" onchange="renderMonthRecords()">
+        <option value="">全部状态</option>
+        <option value="1">已报销</option>
+        <option value="0">未报销</option>
+      </select>
+      <input type="text" id="filterSearch" placeholder="🔍 搜索出差人/事由/地点..." oninput="renderMonthRecords()">
+      <span class="filter-count" id="filterCount"></span>
+    </div>
+
+    <!-- 当月记录列表 -->
+    <div class="records-card">
+      <div class="records-header">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          </svg>
+          本月差旅记录
+        </h3>
+      </div>
+      <div class="records-list" id="monthRecordsList">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <p>本月暂无差旅记录</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 日期点击弹窗 -->
+<div class="modal-overlay hidden" id="dayModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📅 <span id="modalDayTitle"></span></h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modalTrips"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ====== 数据 ======
+const STORAGE_KEY = 'travel_records_v3';
+function getRecords() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+function saveRecords(records) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+
+let records = getRecords();
+let currentViewYear = new Date().getFullYear();
+let detailYear = new Date().getFullYear();
+let detailMonth = new Date().getMonth();
+let editingId = null;
+
+// ====== 工具 ======
+function formatDate(d) {
+  if (!d) return '';
+  const dd = new Date(d + 'T00:00:00');
+  return `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
+}
+function formatDateDisplay(d) {
+  if (!d) return '';
+  const dd = new Date(d + 'T00:00:00');
+  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  return `${months[dd.getMonth()]}${dd.getDate()}日`;
+}
+function formatMoney(n) { return '¥' + Number(n||0).toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:2}); }
+function genId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,6); }
+function getDaysBetween(start, end) {
+  const days = [];
+  const s = new Date(start + 'T00:00:00');
+  const e = end ? new Date(end + 'T00:00:00') : s;
+  while (s <= e) {
+    days.push(`${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,'0')}-${String(s.getDate()).padStart(2,'0')}`);
+    s.setDate(s.getDate()+1);
+  }
+  return days;
+}
+function isDateInRange(dateStr, start, end) {
+  const s = formatDate(start), e = end ? formatDate(end) : s;
+  return dateStr >= s && dateStr <= e;
+}
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function getMonthKey(year, month) { return `${year}-${String(month+1).padStart(2,'0')}`; }
+
+// ====== Toast ======
+function showToast(msg, type='info') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ====== 统计 ======
+function updateStats() {
+  const r = getRecords();
+  let totalFee = 0, reimbursed = 0, unreimbursed = 0;
+  r.forEach(rec => {
+    totalFee += Number(rec.fee||0);
+    if (rec.reimbursed) reimbursed += Number(rec.fee||0);
+    else unreimbursed += Number(rec.fee||0);
+  });
+  document.getElementById('statTotal').textContent = r.length;
+  document.getElementById('statTotalFee').textContent = formatMoney(totalFee);
+  document.getElementById('statReimbursed').textContent = formatMoney(reimbursed);
+  document.getElementById('statUnreimbursed').textContent = formatMoney(unreimbursed);
+}
+
+// ====== 顶部信息 ======
+function updateTopbarDate() {
+  const now = new Date();
+  const weeks = ['周日','周一','周二','周三','周四','周五','周六'];
+  document.getElementById('topbarDate').textContent =
+    `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${weeks[now.getDay()]}`;
+}
+
+// ====== 全年宫格渲染 ======
+function renderYearGrid() {
+  const year = currentViewYear;
+  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  document.getElementById('yearTitle').textContent = year + '年';
+
+  // 按月份统计
+  const monthStats = {};
+  for (let m = 0; m < 12; m++) {
+    monthStats[m] = { total: 0, reimbursed: 0, unreimbursed: 0 };
+  }
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+  records.forEach(rec => {
+    const days = getDaysBetween(rec.startDate, rec.endDate);
+    const y = rec.startDate ? new Date(rec.startDate+'T00:00:00').getFullYear() : null;
+    if (y !== year) return;
+    days.forEach(d => {
+      const m = new Date(d+'T00:00:00').getMonth();
+      monthStats[m].total++;
+      if (rec.reimbursed) monthStats[m].reimbursed++;
+      else monthStats[m].unreimbursed++;
+    });
+  });
+
+  let yearTotalCount = 0;
+  Object.values(monthStats).forEach(s => yearTotalCount += s.total);
+  document.getElementById('yearTotal').textContent = `全年 ${yearTotalCount} 条差旅`;
+
+  let html = '';
+  for (let m = 0; m < 12; m++) {
+    const s = monthStats[m];
+    const firstDay = new Date(year, m, 1);
+    const lastDay = new Date(year, m+1, 0);
+    const startDow = (firstDay.getDay() || 7) - 1;
+    const totalDays = lastDay.getDate();
+    const prevLast = new Date(year, m, 0).getDate();
+
+    // 行程图
+    let miniCalHtml = '';
+    for (let i = 0; i < startDow; i++) {
+      miniCalHtml += `<div class="mini-day mini-day.other">${prevLast - startDow + i + 1}</div>`;
+    }
+    for (let d = 1; d <= totalDays; d++) {
+      const dateStr = `${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const isToday = dateStr === todayStr;
+      const dayTrips = records.filter(r => isDateInRange(dateStr, r.startDate, r.endDate));
+      let cls = 'mini-day current-month';
+      if (isToday) cls += ' today';
+      let tripCls = '';
+      if (dayTrips.length > 0) {
+        const hasBoth = dayTrips.some(t=>t.reimbursed) && dayTrips.some(t=>!t.reimbursed);
+        const allReimbursed = dayTrips.every(t=>t.reimbursed);
+        if (hasBoth) tripCls = ' has-trip both';
+        else if (allReimbursed) tripCls = ' has-trip reimbursed';
+        else tripCls = ' has-trip unreimbursed';
+      }
+      miniCalHtml += `<div class="${cls}${tripCls}">${d}</div>`;
+    }
+    const remaining = (startDow + totalDays) % 7;
+    if (remaining > 0) {
+      for (let d = 1; d <= 7 - remaining; d++) {
+        miniCalHtml += `<div class="mini-day mini-day.other">${d}</div>`;
+      }
+    }
+
+    // 圆点状态
+    let dotClass = 'month-card-dot';
+    if (s.total > 0) {
+      if (s.reimbursed > 0 && s.unreimbursed > 0) dotClass += ' has-both';
+      else if (s.reimbursed > 0) dotClass += ' has has-reimbursed';
+      else dotClass += ' has has-unreimbursed';
+    }
+
+    // 金额
+    const monthFee = records.filter(r => {
+      const rMonth = r.startDate ? new Date(r.startDate+'T00:00:00').getMonth() : -1;
+      const rYear = r.startDate ? new Date(r.startDate+'T00:00:00').getFullYear() : 0;
+      return rYear === year && rMonth === m;
+    }).reduce((sum, r) => sum + Number(r.fee||0), 0);
+
+    html += `
+    <div class="month-card" onclick="openMonth(${year},${m})" id="monthCard${m}">
+      <div class="month-card-header">
+        <span class="month-card-name">${months[m]}</span>
+        <div class="${dotClass}"></div>
+      </div>
+      <div class="month-card-body">
+        <div class="mini-week">${miniCalHtml}</div>
+      </div>
+      <div class="month-summary">
+        <span>${s.total > 0 ? `<strong>${s.total} 笔</strong>` : '无记录'}</span>
+        ${s.total > 0 ? `<span>${formatMoney(monthFee)}</span>` : ''}
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('yearGrid').innerHTML = html;
+}
+
+function changeYear(delta) {
+  currentViewYear += delta;
+  renderYearGrid();
+}
+
+function openMonth(year, month) {
+  detailYear = year;
+  detailMonth = month;
+  document.getElementById('yearSection').style.display = 'none';
+  document.getElementById('monthView').classList.add('visible');
+  document.getElementById('topbarBack').classList.remove('hidden');
+  document.getElementById('topbarTitle').textContent = `${year}年${month+1}月`;
+
+  // 标记激活月份卡片
+  for (let m = 0; m < 12; m++) {
+    const el = document.getElementById('monthCard'+m);
+    if (el) el.classList.toggle('active', m === month);
+  }
+
+  renderDetailCalendar();
+  renderMonthRecords();
+  hideAddForm();
+}
+
+function goBack() {
+  document.getElementById('yearSection').style.display = 'block';
+  document.getElementById('monthView').classList.remove('visible');
+  document.getElementById('topbarBack').classList.add('hidden');
+  document.getElementById('topbarTitle').textContent = '差旅记录';
+  hideAddForm();
+  renderYearGrid();
+}
+
+// ====== 月份大日历 ======
+function renderDetailCalendar() {
+  const months = ['一','二','三','四','五','六','七','八','九','十','十一','十二'];
+  document.getElementById('detailCalTitle').textContent = `${detailYear}年 ${months[detailMonth]}月`;
+  document.getElementById('monthDetailTitle').textContent = `${detailYear}年 ${months[detailMonth]}月`;
+
+  const monthRecs = records.filter(r => {
+    if (!r.startDate) return false;
+    const d = new Date(r.startDate + 'T00:00:00');
+    return d.getFullYear() === detailYear && d.getMonth() === detailMonth;
+  });
+  const monthFee = monthRecs.reduce((s, r) => s + Number(r.fee||0), 0);
+  document.getElementById('monthDetailBadge').textContent =
+    `${monthRecs.length}笔 · ${formatMoney(monthFee)}`;
+
+  // 构建 tripMap
+  const tripMap = {};
+  records.forEach(rec => {
+    getDaysBetween(rec.startDate, rec.endDate).forEach(d => {
+      if (!tripMap[d]) tripMap[d] = [];
+      tripMap[d].push(rec);
+    });
+  });
+
+  const firstDay = new Date(detailYear, detailMonth, 1);
+  const lastDay = new Date(detailYear, detailMonth + 1, 0);
+  const startDow = (firstDay.getDay() || 7) - 1;
+  const totalDays = lastDay.getDate();
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const prevLast = new Date(detailYear, detailMonth, 0).getDate();
+
+  let html = '';
+  for (let i = 0; i < startDow; i++) {
+    html += `<div class="cal-day other-month"><span class="day-num">${prevLast - startDow + i + 1}</span></div>`;
+  }
+  for (let d = 1; d <= totalDays; d++) {
+    const dateStr = `${detailYear}-${String(detailMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const trips = tripMap[dateStr] || [];
+    const isToday = dateStr === todayStr;
+    const hasTrip = trips.length > 0;
+
+    let cls = 'cal-day';
+    if (isToday) cls += ' today';
+    if (hasTrip) cls += ' has-trip';
+
+    let dots = '';
+    if (hasTrip) {
+      const colors = ['#2563EB','#16A34A','#D97706','#7C3AED','#DC2626'];
+      dots = trips.map((t, i) =>
+        `<span style="background:${t.reimbursed ? '#16A34A' : '#D97706'}"></span>`
+      ).join('');
+      dots = `<div class="day-dots">${dots}</div>`;
+    }
+
+    html += `<div class="${cls}" onclick="onDetailDayClick('${dateStr}')">
+      <span class="day-num">${d}</span>
+      ${dots}
+    </div>`;
+  }
+  const remainder = (startDow + totalDays) % 7;
+  if (remainder > 0) {
+    for (let d = 1; d <= 7 - remainder; d++) {
+      html += `<div class="cal-day other-month"><span class="day-num">${d}</span></div>`;
+    }
+  }
+  document.getElementById('detailCalDays').innerHTML = html;
+}
+
+function changeDetailMonth(delta) {
+  detailMonth += delta;
+  if (detailMonth < 0) { detailMonth = 11; detailYear--; }
+  if (detailMonth > 11) { detailMonth = 0; detailYear++; }
+  renderDetailCalendar();
+  renderMonthRecords();
+  hideAddForm();
+}
+
+function onDetailDayClick(dateStr) {
+  const trips = records.filter(r => isDateInRange(dateStr, r.startDate, r.endDate));
+  document.getElementById('modalDayTitle').textContent = dateStr;
+  const container = document.getElementById('modalTrips');
+
+  if (trips.length === 0) {
+    container.innerHTML = `<p style="text-align:center;color:var(--gray-400);padding:18px;">当天无差旅记录</p>`;
+  } else {
+    container.innerHTML = trips.map(t => `
+      <div style="margin-bottom:9px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);overflow:hidden;">
+        <div style="padding:8px 11px;background:var(--gray-50);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--gray-100);">
+          <strong style="font-size:12px;color:var(--gray-800)">${escHtml(t.person)}</strong>
+          <span class="badge ${t.reimbursed ? 'badge-green' : 'badge-orange'}">${t.reimbursed ? '已报销' : '未报销'}</span>
+        </div>
+        <div style="padding:8px 11px;font-size:11px;display:flex;flex-direction:column;gap:3px;">
+          <div><span style="color:var(--gray-500)">地点：</span><span style="color:var(--gray-700)">${escHtml(t.location)}</span></div>
+          <div><span style="color:var(--gray-500)">费用：</span><span style="color:var(--danger);font-weight:700">${formatMoney(t.fee)}</span></div>
+          <div><span style="color:var(--gray-500)">事由：</span><span style="color:var(--gray-700)">${escHtml(t.reason)}</span></div>
+        </div>
+        <div style="padding:6px 11px;background:var(--gray-50);border-top:1px solid var(--gray-100);display:flex;gap:5px;">
+          <button class="btn btn-edit" onclick="editRecord('${t.id}');closeModal();" style="flex:1;font-size:11px;padding:5px;">✏️ 编辑</button>
+          <button class="btn btn-danger" onclick="if(confirm('确认删除？')){deleteRecord('${t.id}');closeModal();renderDetailCalendar();}" style="flex:1;font-size:11px;padding:5px;">🗑️ 删除</button>
+        </div>
+      </div>
+    `).join('');
+  }
+  document.getElementById('dayModal').classList.remove('hidden');
+}
+
+function closeModal() { document.getElementById('dayModal').classList.add('hidden'); }
+
+// ====== 月份记录列表 ======
+function renderMonthRecords() {
+  const status = document.getElementById('filterStatus').value;
+  const search = document.getElementById('filterSearch').value.trim().toLowerCase();
+
+  let filtered = records.filter(r => {
+    if (!r.startDate) return false;
+    const d = new Date(r.startDate + 'T00:00:00');
+    return d.getFullYear() === detailYear && d.getMonth() === detailMonth;
+  });
+
+  if (status !== '') {
+    const val = status === '1';
+    filtered = filtered.filter(r => !!r.reimbursed === val);
+  }
+  if (search) {
+    filtered = filtered.filter(r =>
+      r.person.toLowerCase().includes(search) ||
+      r.reason.toLowerCase().includes(search) ||
+      r.location.toLowerCase().includes(search) ||
+      (r.note||'').toLowerCase().includes(search)
+    );
+  }
+
+  document.getElementById('filterCount').textContent = `共 ${filtered.length} 条`;
+
+  const list = document.getElementById('monthRecordsList');
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <p>本月暂无差旅记录</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(rec => {
+    const dateRange = rec.endDate
+      ? `${formatDateDisplay(rec.startDate)} ~ ${formatDateDisplay(rec.endDate)}`
+      : formatDateDisplay(rec.startDate);
+    const days = getDaysBetween(rec.startDate, rec.endDate).length;
+    return `
+    <div class="trip-item ${rec.reimbursed ? 'reimbursed' : 'unreimbursed'}">
+      <div class="trip-top">
+        <div>
+          <div class="trip-person">${escHtml(rec.person)}</div>
+          <div class="trip-date">${dateRange} ${days > 1 ? `（共${days}天）` : ''}</div>
+        </div>
+        <div class="trip-badges">
+          <span class="badge ${rec.reimbursed ? 'badge-green' : 'badge-orange'}">${rec.reimbursed ? '✓ 已报销' : '○ 未报销'}</span>
+        </div>
+      </div>
+      <div class="trip-body">
+        <div class="trip-row"><span class="trip-label">📍 地点</span><span class="trip-value">${escHtml(rec.location)}</span></div>
+        <div class="trip-row"><span class="trip-label">📝 事由</span><span class="trip-value">${escHtml(rec.reason)}</span></div>
+        <div class="trip-row"><span class="trip-label">💰 费用</span><span class="trip-value money">${formatMoney(rec.fee)}</span></div>
+        ${rec.note ? `<div class="trip-row"><span class="trip-label">📎 备注</span><span class="trip-value">${escHtml(rec.note)}</span></div>` : ''}
+      </div>
+      <div class="trip-actions">
+        <button class="btn btn-edit" onclick="editRecord('${rec.id}')">✏️ 编辑</button>
+        <button class="btn btn-secondary" onclick="toggleReimbursed('${rec.id}')">${rec.reimbursed ? '↩️ 撤销' : '✅ 报销'}</button>
+        <button class="btn btn-danger" onclick="if(confirm('确认删除「${escHtml(rec.person)}」的记录？')){deleteRecord('${rec.id}');}">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ====== 表单操作 ======
+function showAddForm() {
+  document.getElementById('addFormCard').style.display = 'block';
+  document.getElementById('addFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // 如果是当前月，默认填入当月第一天
+  const today = new Date();
+  if (detailYear === today.getFullYear() && detailMonth === today.getMonth()) {
+    document.getElementById('fStartDate').value = today.toISOString().split('T')[0];
+  }
+  document.getElementById('fPerson').focus();
+}
+
+function hideAddForm() {
+  document.getElementById('addFormCard').style.display = 'none';
+  resetForm();
+}
+
+function resetForm() {
+  document.getElementById('editId').value = '';
+  document.getElementById('fPerson').value = '';
+  document.getElementById('fLocation').value = '';
+  document.getElementById('fStartDate').value = '';
+  document.getElementById('fEndDate').value = '';
+  document.getElementById('fFee').value = '';
+  document.getElementById('fReason').value = '';
+  document.getElementById('fNote').value = '';
+  document.getElementById('fReimbursed').checked = false;
+  editingId = null;
+  document.getElementById('formTitleText').textContent = '新增差旅记录';
+  document.getElementById('btnSave').textContent = '💾 保存记录';
+}
+
+function editRecord(id) {
+  const rec = records.find(r => r.id === id);
+  if (!rec) return;
+  editingId = id;
+  document.getElementById('editId').value = id;
+  document.getElementById('fPerson').value = rec.person;
+  document.getElementById('fLocation').value = rec.location;
+  document.getElementById('fStartDate').value = rec.startDate;
+  document.getElementById('fEndDate').value = rec.endDate || '';
+  document.getElementById('fFee').value = rec.fee;
+  document.getElementById('fReason').value = rec.reason;
+  document.getElementById('fNote').value = rec.note || '';
+  document.getElementById('fReimbursed').checked = !!rec.reimbursed;
+  document.getElementById('formTitleText').textContent = '✏️ 编辑差旅记录';
+  document.getElementById('btnSave').textContent = '💾 更新记录';
+  document.getElementById('addFormCard').style.display = 'block';
+  document.getElementById('addFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showToast('已进入编辑模式', 'info');
+}
+
+function deleteRecord(id) {
+  records = records.filter(r => r.id !== id);
+  saveRecords(records);
+  updateStats();
+  renderMonthRecords();
+  renderDetailCalendar();
+  renderYearGrid();
+  showToast('记录已删除', 'info');
+}
+
+function toggleReimbursed(id) {
+  const rec = records.find(r => r.id === id);
+  if (!rec) return;
+  rec.reimbursed = !rec.reimbursed;
+  saveRecords(records);
+  updateStats();
+  renderMonthRecords();
+  renderDetailCalendar();
+  renderYearGrid();
+  showToast(rec.reimbursed ? '已标记报销' : '已撤销报销', 'info');
+}
+
+function saveRecord() {
+  const person = document.getElementById('fPerson').value.trim();
+  const location = document.getElementById('fLocation').value.trim();
+  const startDate = document.getElementById('fStartDate').value;
+  const endDate = document.getElementById('fEndDate').value;
+  const fee = document.getElementById('fFee').value;
+  const reason = document.getElementById('fReason').value.trim();
+  const note = document.getElementById('fNote').value.trim();
+  const reimbursed = document.getElementById('fReimbursed').checked;
+
+  if (!person) { showToast('请填写出差人', 'error'); document.getElementById('fPerson').focus(); return; }
+  if (!location) { showToast('请填写地点', 'error'); document.getElementById('fLocation').focus(); return; }
+  if (!startDate) { showToast('请选择开始日期', 'error'); document.getElementById('fStartDate').focus(); return; }
+  if (!fee || fee <= 0) { showToast('请填写正确的差旅费', 'error'); document.getElementById('fFee').focus(); return; }
+  if (!reason) { showToast('请填写出差事由', 'error'); document.getElementById('fReason').focus(); return; }
+  if (endDate && endDate < startDate) { showToast('结束日期不能早于开始日期', 'error'); return; }
+
+  const id = document.getElementById('editId').value || genId();
+  const record = {
+    id, person, location, startDate, endDate: endDate || '',
+    fee: Number(fee), reason, note, reimbursed,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (document.getElementById('editId').value) {
+    const idx = records.findIndex(r => r.id === id);
+    if (idx !== -1) records[idx] = record;
+    showToast('记录已更新', 'success');
+  } else {
+    record.createdAt = new Date().toISOString();
+    records.unshift(record);
+    showToast('差旅记录已保存', 'success');
+  }
+
+  saveRecords(records);
+  updateStats();
+  hideAddForm();
+  renderDetailCalendar();
+  renderMonthRecords();
+  renderYearGrid();
+}
+
+// ====== 初始化 ======
+function init() {
+  updateTopbarDate();
+  renderYearGrid();
+  updateStats();
+
+  document.getElementById('dayModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  // 同步年份
+  currentViewYear = new Date().getFullYear();
+  renderYearGrid();
+}
+
+init();
+</script>
+</body>
+</html>
