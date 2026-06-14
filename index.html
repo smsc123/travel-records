@@ -1478,9 +1478,8 @@ async function doFirstTimeSetup() {
     cloudToken = tokenInput;
     cloudConfig = { dataGistId: cloudDataGistId };
 
-    showSyncBanner('初始化成功！', 'success');
+    showSyncBanner('初始化成功！请上传数据', 'success');
     openSyncModal();
-    doCloudPush(true);
   } else if (cloudToken) {
     // 只有密码，从 master Gist 恢复
     showSyncBanner('恢复配置中...', 'info');
