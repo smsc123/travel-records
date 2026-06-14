@@ -1,5 +1,4 @@
 # travel-records
 
-宸梾璁板綍宸ュ叿 - Travel Records
-
-Access at: https://smsc123.github.io/travel-records/
+差旅记录工具 - 云端同步版
+https://smsc123.github.io/travel-records/
