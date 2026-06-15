@@ -20,6 +20,8 @@
   --danger: #DC2626;
   --danger-light: #FEF2F2;
   --purple: #7C3AED;
+  --purple-light: #F5F3FF;
+  --purple-dark: #6D28D9;
   --gray-50: #F9FAFB;
   --gray-100: #F3F4F6;
   --gray-200: #E5E7EB;
@@ -79,7 +81,7 @@ body {
 /* ===== 统计栏 ===== */
 .stats-bar {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 8px;
   padding: 10px 14px;
   background: var(--white);
@@ -194,6 +196,8 @@ body {
 .mini-day.has-trip.reimbursed { background: var(--success); }
 .mini-day.has-trip.unreimbursed { background: var(--warning); }
 .mini-day.has-trip.both { background: var(--primary); }
+.mini-day.has-leave { background: var(--purple); color: var(--white); font-weight: 600; }
+.mini-day.has-both-tl { background: linear-gradient(135deg, var(--primary) 50%, var(--purple) 50%); color: var(--white); font-weight: 600; }
 .mini-day.today { border: 1px solid var(--primary); }
 .mini-day.other { opacity: 0.3; }
 
@@ -287,6 +291,7 @@ body {
 .cal-day.other-month { color: var(--gray-300); }
 .cal-day.today { background: var(--primary-light); color: var(--primary); font-weight: 700; }
 .cal-day.has-trip { font-weight: 600; }
+.cal-day.has-leave { font-weight: 600; background: var(--purple-light); color: var(--purple); }
 .day-dots { display: flex; gap: 2px; justify-content: center; flex-wrap: wrap; max-width: 34px; }
 .day-dots span { width: 5px; height: 5px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .day-num { line-height: 1; }
@@ -547,7 +552,7 @@ body {
 
 /* ===== 响应式 ===== */
 @media (max-width: 600px) {
-  .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 7px; padding: 8px 10px; }
+  .stats-bar { grid-template-columns: repeat(3, 1fr); gap: 7px; padding: 8px 10px; }
   .form-grid { grid-template-columns: 1fr; }
   .container { padding: 8px 7px 24px; }
   .year-grid { grid-template-columns: repeat(3, 1fr); gap: 7px; }
@@ -590,6 +595,7 @@ body {
   <div class="stat-card orange"><div class="val" id="statTotalFee">¥0</div><div class="lbl">总费用</div></div>
   <div class="stat-card green"><div class="val" id="statReimbursed">¥0</div><div class="lbl">已报销</div></div>
   <div class="stat-card red"><div class="val" id="statUnreimbursed">¥0</div><div class="lbl">未报销</div></div>
+  <div class="stat-card" style="background:var(--purple-light);border:1px solid #E9D5FF;"><div class="val" id="statLeaveDays" style="color:var(--purple);">0</div><div class="lbl">请假天数</div></div>
 </div>
 
 <div class="container">
@@ -637,6 +643,7 @@ body {
         <span><span class="dot" style="background:#2563EB"></span>出差日</span>
         <span><span class="dot" style="background:#16A34A"></span>已报销</span>
         <span><span class="dot" style="background:#D97706"></span>未报销</span>
+        <span><span class="dot" style="background:#7C3AED"></span>请假</span>
       </div>
     </div>
 
@@ -698,6 +705,60 @@ body {
       </div>
     </div>
 
+    <!-- 请假表单（隐藏） -->
+    <div class="form-card" id="leaveFormCard" style="display:none;">
+      <div class="form-title" style="background:var(--purple-light);">
+        <span style="color:var(--purple);">📋</span>
+        <span id="leaveFormTitle" style="color:var(--purple);">新增请假记录</span>
+      </div>
+      <div class="form-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>请假人 <span class="req">*</span></label>
+            <input type="text" id="lPerson" placeholder="姓名" maxlength="20">
+          </div>
+          <div class="form-group">
+            <label>请假类型 <span class="req">*</span></label>
+            <select id="lType">
+              <option value="年假">年假</option>
+              <option value="事假">事假</option>
+              <option value="病假">病假</option>
+              <option value="婚假">婚假</option>
+              <option value="产假">产假</option>
+              <option value="丧假">丧假</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>开始日期 <span class="req">*</span></label>
+            <input type="date" id="lStartDate">
+          </div>
+          <div class="form-group">
+            <label>结束日期</label>
+            <input type="date" id="lEndDate">
+            <span class="hint">单日请假可不填</span>
+          </div>
+          <div class="form-group full">
+            <label>事由 <span class="req">*</span></label>
+            <input type="text" id="lReason" placeholder="请假原因" maxlength="100">
+          </div>
+          <div class="form-group full">
+            <label>备注</label>
+            <textarea id="lNote" placeholder="补充说明（可选）" maxlength="200" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" style="background:var(--purple);color:#fff;" onclick="saveLeave()">
+            💾 保存请假
+          </button>
+          <button class="btn btn-secondary" onclick="hideLeaveForm()">
+            取消
+          </button>
+        </div>
+        <input type="hidden" id="leaveEditId" value="">
+      </div>
+    </div>
+
     <!-- 筛选 -->
     <div class="filter-bar">
       <select id="filterStatus" onchange="renderMonthRecords()">
@@ -728,6 +789,20 @@ body {
         </div>
       </div>
     </div>
+
+    <!-- 当月请假记录 -->
+    <div class="records-card" style="margin-top:10px;">
+      <div class="records-header" style="background:var(--purple-light);">
+        <h3 style="color:var(--purple);">
+          📋 本月请假记录
+        </h3>
+      </div>
+      <div class="records-list" id="monthLeavesList">
+        <div class="empty-state">
+          <p>本月暂无请假记录</p>
+        </div>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -751,6 +826,7 @@ body {
 <script>
 // ====== 数据 ======
 const STORAGE_KEY = 'travel_records_v3';
+const LEAVE_KEY = 'leave_records_v1';
 function getRecords() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
   catch { return []; }
@@ -758,8 +834,16 @@ function getRecords() {
 function saveRecords(records) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
 }
+function getLeaves() {
+  try { return JSON.parse(localStorage.getItem(LEAVE_KEY)) || []; }
+  catch { return []; }
+}
+function saveLeaves(leaves) {
+  localStorage.setItem(LEAVE_KEY, JSON.stringify(leaves));
+}
 
 let records = getRecords();
+let leaves = getLeaves();
 let currentViewYear = new Date().getFullYear();
 let detailYear = new Date().getFullYear();
 let detailMonth = new Date().getMonth();
@@ -822,6 +906,11 @@ function updateStats() {
   document.getElementById('statTotalFee').textContent = formatMoney(totalFee);
   document.getElementById('statReimbursed').textContent = formatMoney(reimbursed);
   document.getElementById('statUnreimbursed').textContent = formatMoney(unreimbursed);
+  // 请假天数统计
+  const lv = getLeaves();
+  let leaveDays = 0;
+  lv.forEach(l => { leaveDays += getDaysBetween(l.startDate, l.endDate).length; });
+  document.getElementById('statLeaveDays').textContent = leaveDays;
 }
 
 // ====== 顶部信息 ======
@@ -860,7 +949,11 @@ function renderYearGrid() {
 
   let yearTotalCount = 0;
   Object.values(monthStats).forEach(s => yearTotalCount += s.total);
-  document.getElementById('yearTotal').textContent = `全年 ${yearTotalCount} 条差旅`;
+  const yearLeaveCount = leaves.filter(l => {
+    const y = l.startDate ? new Date(l.startDate+'T00:00:00').getFullYear() : null;
+    return y === year;
+  }).length;
+  document.getElementById('yearTotal').textContent = `全年 ${yearTotalCount} 条差旅 · ${yearLeaveCount} 条请假`;
 
   let html = '';
   for (let m = 0; m < 12; m++) {
@@ -880,10 +973,15 @@ function renderYearGrid() {
       const dateStr = `${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       const isToday = dateStr === todayStr;
       const dayTrips = records.filter(r => isDateInRange(dateStr, r.startDate, r.endDate));
+      const dayLeaves = leaves.filter(l => isDateInRange(dateStr, l.startDate, l.endDate));
       let cls = 'mini-day current-month';
       if (isToday) cls += ' today';
       let tripCls = '';
-      if (dayTrips.length > 0) {
+      if (dayTrips.length > 0 && dayLeaves.length > 0) {
+        tripCls = ' has-both-tl';
+      } else if (dayLeaves.length > 0) {
+        tripCls = ' has-leave';
+      } else if (dayTrips.length > 0) {
         const hasBoth = dayTrips.some(t=>t.reimbursed) && dayTrips.some(t=>!t.reimbursed);
         const allReimbursed = dayTrips.every(t=>t.reimbursed);
         if (hasBoth) tripCls = ' has-trip both';
@@ -924,7 +1022,7 @@ function renderYearGrid() {
         <div class="mini-week">${miniCalHtml}</div>
       </div>
       <div class="month-summary">
-        <span>${s.total > 0 ? `<strong>${s.total} 笔</strong>` : '无记录'}</span>
+        <span>${s.total > 0 ? `<strong>${s.total} 差</strong>` : '无差旅'}${(() => { const ml = leaves.filter(l => { const ly = l.startDate ? new Date(l.startDate+'T00:00:00').getFullYear() : null; const lm = l.startDate ? new Date(l.startDate+'T00:00:00').getMonth() : null; return ly === year && lm === m; }); return ml.length > 0 ? ` · <strong style="color:var(--purple)">${ml.length} 假</strong>` : ''; })() }</span>
         ${s.total > 0 ? `<span>${formatMoney(monthFee)}</span>` : ''}
       </div>
     </div>`;
@@ -954,6 +1052,7 @@ function openMonth(year, month) {
 
   renderDetailCalendar();
   renderMonthRecords();
+  renderMonthLeaves();
   hideAddForm();
 }
 
@@ -979,7 +1078,7 @@ function renderDetailCalendar() {
   });
   const monthFee = monthRecs.reduce((s, r) => s + Number(r.fee||0), 0);
   document.getElementById('monthDetailBadge').textContent =
-    `${monthRecs.length}笔 · ${formatMoney(monthFee)}`;
+    `${monthRecs.length}笔 · ${formatMoney(monthFee)}${(() => { const ml = leaves.filter(l => { if(!l.startDate) return false; const d = new Date(l.startDate+'T00:00:00'); return d.getFullYear()===detailYear && d.getMonth()===detailMonth; }); return ml.length > 0 ? ` · ${ml.length}假` : ''; })()}`;
 
   // 构建 tripMap
   const tripMap = {};
@@ -1005,19 +1104,22 @@ function renderDetailCalendar() {
   for (let d = 1; d <= totalDays; d++) {
     const dateStr = `${detailYear}-${String(detailMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const trips = tripMap[dateStr] || [];
+    const dayLeaves = leaves.filter(l => isDateInRange(dateStr, l.startDate, l.endDate));
     const isToday = dateStr === todayStr;
     const hasTrip = trips.length > 0;
+    const hasLeave = dayLeaves.length > 0;
 
     let cls = 'cal-day';
     if (isToday) cls += ' today';
     if (hasTrip) cls += ' has-trip';
+    if (hasLeave) cls += ' has-leave';
 
     let dots = '';
-    if (hasTrip) {
-      const colors = ['#2563EB','#16A34A','#D97706','#7C3AED','#DC2626'];
-      dots = trips.map((t, i) =>
-        `<span style="background:${t.reimbursed ? '#16A34A' : '#D97706'}"></span>`
-      ).join('');
+    if (hasTrip || hasLeave) {
+      const allDots = [];
+      if (hasTrip) trips.forEach(t => allDots.push(t.reimbursed ? '#16A34A' : '#D97706'));
+      if (hasLeave) dayLeaves.forEach(() => allDots.push('#7C3AED'));
+      dots = allDots.map(c => `<span style="background:${c}"></span>`).join('');
       dots = `<div class="day-dots">${dots}</div>`;
     }
 
@@ -1041,18 +1143,41 @@ function changeDetailMonth(delta) {
   if (detailMonth > 11) { detailMonth = 0; detailYear++; }
   renderDetailCalendar();
   renderMonthRecords();
+  renderMonthLeaves();
   hideAddForm();
 }
 
 function onDetailDayClick(dateStr) {
   const trips = records.filter(r => isDateInRange(dateStr, r.startDate, r.endDate));
+  const dayLeaves = leaves.filter(l => isDateInRange(dateStr, l.startDate, l.endDate));
   document.getElementById('modalDayTitle').textContent = dateStr;
   const container = document.getElementById('modalTrips');
 
-  if (trips.length === 0) {
-    container.innerHTML = `<p style="text-align:center;color:var(--gray-400);padding:18px;">当天无差旅记录</p>`;
-  } else {
-    container.innerHTML = trips.map(t => `
+  let html = '';
+
+  // 请假记录
+  if (dayLeaves.length > 0) {
+    html += dayLeaves.map(l => `
+      <div style="margin-bottom:9px;border:1px solid #E9D5FF;border-radius:var(--radius-sm);overflow:hidden;border-left:4px solid var(--purple);">
+        <div style="padding:8px 11px;background:var(--purple-light);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #E9D5FF;">
+          <strong style="font-size:12px;color:var(--purple-dark)">${escHtml(l.person)}</strong>
+          <span class="badge" style="background:var(--purple-light);color:var(--purple);">${escHtml(l.type)}</span>
+        </div>
+        <div style="padding:8px 11px;font-size:11px;display:flex;flex-direction:column;gap:3px;">
+          <div><span style="color:var(--gray-500)">事由：</span><span style="color:var(--gray-700)">${escHtml(l.reason)}</span></div>
+          ${l.note ? `<div><span style="color:var(--gray-500)">备注：</span><span style="color:var(--gray-700)">${escHtml(l.note)}</span></div>` : ''}
+        </div>
+        <div style="padding:6px 11px;background:var(--purple-light);border-top:1px solid #E9D5FF;display:flex;gap:5px;">
+          <button class="btn btn-edit" onclick="editLeave('${l.id}');closeModal();" style="flex:1;font-size:11px;padding:5px;border-color:var(--purple);color:var(--purple);background:var(--purple-light);">✏️ 编辑</button>
+          <button class="btn btn-danger" onclick="if(confirm('确认删除？')){deleteLeave('${l.id}');closeModal();}" style="flex:1;font-size:11px;padding:5px;">🗑️ 删除</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // 差旅记录
+  if (trips.length > 0) {
+    html += trips.map(t => `
       <div style="margin-bottom:9px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);overflow:hidden;">
         <div style="padding:8px 11px;background:var(--gray-50);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--gray-100);">
           <strong style="font-size:12px;color:var(--gray-800)">${escHtml(t.person)}</strong>
@@ -1070,6 +1195,15 @@ function onDetailDayClick(dateStr) {
       </div>
     `).join('');
   }
+
+  if (trips.length === 0 && dayLeaves.length === 0) {
+    html = `<p style="text-align:center;color:var(--gray-400);padding:18px;">当天无记录</p>`;
+  }
+
+  // 添加请假按钮
+  html += `<button onclick="showLeaveForm('${dateStr}');closeModal();" style="width:100%;margin-top:10px;padding:10px;background:var(--purple);color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">📋 登记请假</button>`;
+
+  container.innerHTML = html;
   document.getElementById('dayModal').classList.remove('hidden');
 }
 
@@ -1200,6 +1334,7 @@ function deleteRecord(id) {
   saveRecords(records);
   updateStats();
   renderMonthRecords();
+  renderMonthLeaves();
   renderDetailCalendar();
   renderYearGrid();
   showToast('记录已删除', 'info');
@@ -1212,6 +1347,7 @@ function toggleReimbursed(id) {
   saveRecords(records);
   updateStats();
   renderMonthRecords();
+  renderMonthLeaves();
   renderDetailCalendar();
   renderYearGrid();
   showToast(rec.reimbursed ? '已标记报销' : '已撤销报销', 'info');
@@ -1256,6 +1392,7 @@ function saveRecord() {
   hideAddForm();
   renderDetailCalendar();
   renderMonthRecords();
+  renderMonthLeaves();
   renderYearGrid();
 }
 
@@ -1526,7 +1663,8 @@ async function doCloudPush(silent) {
 
   try {
     const recs = getRecords();
-    const encrypted = CryptoJS.AES.encrypt(JSON.stringify({ v: 1, records: recs }), cloudPassword).toString();
+    const lv = getLeaves();
+    const encrypted = CryptoJS.AES.encrypt(JSON.stringify({ v: 2, travel: recs, leave: lv }), cloudPassword).toString();
     const payload = JSON.stringify({ updatedAt: new Date().toISOString(), data: encrypted });
 
     const gr = await fetch('https://api.github.com/gists/' + cloudDataGistId, {
@@ -1581,21 +1719,35 @@ async function performPull(password) {
       decrypted = JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
     } catch(e) { showSyncBanner('密码错误', 'error'); setSyncBtn('idle'); return; }
 
-    const cloudRecs = decrypted.records || [];
+    // 兼容 v1 和 v2 格式
+    let cloudTravel = [];
+    let cloudLeave = [];
+    if (decrypted.v === 2) {
+      cloudTravel = decrypted.travel || [];
+      cloudLeave = decrypted.leave || [];
+    } else {
+      // v1 旧格式
+      cloudTravel = decrypted.records || [];
+    }
     cloudPassword = password;
 
-    if (!confirm('云端 ' + cloudRecs.length + ' 条 / 本地 ' + getRecords().length + ' 条\n确认用云端覆盖本地？')) {
+    const localTravel = getRecords().length;
+    const localLeave = getLeaves().length;
+    if (!confirm(`云端 差旅${cloudTravel.length}条/请假${cloudLeave.length}条 / 本地 差旅${localTravel}条/请假${localLeave}条\n确认用云端覆盖本地？`)) {
       setSyncBtn('idle'); return;
     }
 
-    saveRecords(cloudRecs);
-    records = cloudRecs;
+    saveRecords(cloudTravel);
+    saveLeaves(cloudLeave);
+    records = cloudTravel;
+    leaves = cloudLeave;
     updateStats();
     renderYearGrid();
     renderDetailCalendar();
     renderMonthRecords();
+  renderMonthLeaves();
 
-    showSyncBanner(cloudRecs.length + ' 条记录已导入', 'success');
+    showSyncBanner(`差旅${cloudTravel.length}条 + 请假${cloudLeave.length}条已导入`, 'success');
     showToast('导入成功', 'success');
   } catch(e) {
     showToast('下载失败: ' + e.message, 'error');
@@ -1623,6 +1775,141 @@ saveRecords = function(recs) {
     window._cloudSyncTimer = setTimeout(function() { doCloudPush(true); }, 2000);
   }
 };
+
+// ====== 请假记录功能 ======
+let editingLeaveId = null;
+
+function showLeaveForm(dateStr) {
+  document.getElementById('leaveFormCard').style.display = 'block';
+  document.getElementById('leaveFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (dateStr) {
+    document.getElementById('lStartDate').value = dateStr;
+  }
+  document.getElementById('lPerson').focus();
+}
+
+function hideLeaveForm() {
+  document.getElementById('leaveFormCard').style.display = 'none';
+  resetLeaveForm();
+}
+
+function resetLeaveForm() {
+  document.getElementById('leaveEditId').value = '';
+  document.getElementById('lPerson').value = '';
+  document.getElementById('lType').value = '年假';
+  document.getElementById('lStartDate').value = '';
+  document.getElementById('lEndDate').value = '';
+  document.getElementById('lReason').value = '';
+  document.getElementById('lNote').value = '';
+  editingLeaveId = null;
+  document.getElementById('leaveFormTitle').textContent = '新增请假记录';
+}
+
+function saveLeave() {
+  const person = document.getElementById('lPerson').value.trim();
+  const type = document.getElementById('lType').value;
+  const startDate = document.getElementById('lStartDate').value;
+  const endDate = document.getElementById('lEndDate').value;
+  const reason = document.getElementById('lReason').value.trim();
+  const note = document.getElementById('lNote').value.trim();
+
+  if (!person) { showToast('请填写请假人', 'error'); return; }
+  if (!startDate) { showToast('请选择开始日期', 'error'); return; }
+  if (!reason) { showToast('请填写请假事由', 'error'); return; }
+  if (endDate && endDate < startDate) { showToast('结束日期不能早于开始日期', 'error'); return; }
+
+  const id = document.getElementById('leaveEditId').value || genId();
+  const leave = {
+    id, person, type, startDate, endDate: endDate || '',
+    reason, note,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (document.getElementById('leaveEditId').value) {
+    const idx = leaves.findIndex(l => l.id === id);
+    if (idx !== -1) leaves[idx] = leave;
+    showToast('请假记录已更新', 'success');
+  } else {
+    leave.createdAt = new Date().toISOString();
+    leaves.unshift(leave);
+    showToast('请假记录已保存', 'success');
+  }
+
+  saveLeaves(leaves);
+  updateStats();
+  hideLeaveForm();
+  renderDetailCalendar();
+  renderMonthLeaves();
+  renderYearGrid();
+}
+
+function editLeave(id) {
+  const l = leaves.find(x => x.id === id);
+  if (!l) return;
+  editingLeaveId = id;
+  document.getElementById('leaveEditId').value = id;
+  document.getElementById('lPerson').value = l.person;
+  document.getElementById('lType').value = l.type;
+  document.getElementById('lStartDate').value = l.startDate;
+  document.getElementById('lEndDate').value = l.endDate || '';
+  document.getElementById('lReason').value = l.reason;
+  document.getElementById('lNote').value = l.note || '';
+  document.getElementById('leaveFormTitle').textContent = '✏️ 编辑请假记录';
+  document.getElementById('leaveFormCard').style.display = 'block';
+  document.getElementById('leaveFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showToast('已进入编辑模式', 'info');
+}
+
+function deleteLeave(id) {
+  leaves = leaves.filter(l => l.id !== id);
+  saveLeaves(leaves);
+  updateStats();
+  renderDetailCalendar();
+  renderMonthLeaves();
+  renderYearGrid();
+  showToast('请假记录已删除', 'info');
+}
+
+function renderMonthLeaves() {
+  const monthLeaves = leaves.filter(l => {
+    if (!l.startDate) return false;
+    const d = new Date(l.startDate + 'T00:00:00');
+    return d.getFullYear() === detailYear && d.getMonth() === detailMonth;
+  });
+
+  const list = document.getElementById('monthLeavesList');
+  if (monthLeaves.length === 0) {
+    list.innerHTML = `<div class="empty-state"><p>本月暂无请假记录</p></div>`;
+    return;
+  }
+
+  list.innerHTML = monthLeaves.map(l => {
+    const dateRange = l.endDate
+      ? `${formatDateDisplay(l.startDate)} ~ ${formatDateDisplay(l.endDate)}`
+      : formatDateDisplay(l.startDate);
+    const days = getDaysBetween(l.startDate, l.endDate).length;
+    return `
+    <div class="trip-item" style="border-left:4px solid var(--purple);">
+      <div class="trip-top" style="background:var(--purple-light);">
+        <div>
+          <div class="trip-person" style="color:var(--purple-dark);">${escHtml(l.person)}</div>
+          <div class="trip-date">${dateRange} ${days > 1 ? `（共${days}天）` : ''}</div>
+        </div>
+        <div class="trip-badges">
+          <span class="badge" style="background:var(--purple-light);color:var(--purple);">${escHtml(l.type)}</span>
+        </div>
+      </div>
+      <div class="trip-body">
+        <div class="trip-row"><span class="trip-label">📝 事由</span><span class="trip-value">${escHtml(l.reason)}</span></div>
+        ${l.note ? `<div class="trip-row"><span class="trip-label">📎 备注</span><span class="trip-value">${escHtml(l.note)}</span></div>` : ''}
+      </div>
+      <div class="trip-actions" style="background:var(--purple-light);">
+        <button class="btn" style="flex:1;padding:5px 10px;font-size:11px;background:var(--purple-light);color:var(--purple);border:1px solid var(--purple);" onclick="editLeave('${l.id}')">✏️ 编辑</button>
+        <button class="btn btn-danger" style="flex:1;padding:5px 10px;font-size:11px;" onclick="if(confirm('确认删除「${escHtml(l.person)}」的请假记录？')){deleteLeave('${l.id}');}">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
 
 init();
 </script>
